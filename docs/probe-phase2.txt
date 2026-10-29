@@ -1,0 +1,117 @@
+# Phase 2 probe output (npm run probe -- --with-fixtures, then db reset + seed)
+# Fixture rows: 3 leases + invoices, 2 payments, 1 allocation, 2 bills, 2 audit rows. Counts below reflect them.
+
+
+SELECT: rows visible (number) or deny. Counts are checked against the database.
+                    | anon | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N | manager N | manager B
+--------------------+------+------------------+---------------+----------------+---------+-----------+----------
+organizations       | deny | 1                | 1             | 1              | 1       | 1         | 1        
+memberships         | deny | 0                | 0             | 0              | 2       | 2         | 1        
+units               | deny | 1                | 1             | 1              | 4       | 4         | 1        
+tenants             | deny | 1                | 1             | 1              | 3       | 3         | 1        
+leases              | deny | 1                | 1             | 1              | 2       | 2         | 1        
+invoices            | deny | 7                | 4             | 13             | 11      | 11        | 13       
+payments            | deny | 1                | 1             | 0              | 2       | 2         | 0        
+payment_allocations | deny | 1                | 0             | 0              | 1       | 1         | 0        
+gateway_bills       | deny | 1                | 0             | 1              | 1       | 1         | 1        
+audit_log           | deny | 0                | 0             | 0              | 0       | 1         | 1        
+
+INSERT: every role on every table must be denied (42501)
+                    | anon | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N | manager N | manager B
+--------------------+------+------------------+---------------+----------------+---------+-----------+----------
+organizations       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+memberships         | deny | deny             | deny          | deny           | deny    | deny      | deny     
+units               | deny | deny             | deny          | deny           | deny    | deny      | deny     
+tenants             | deny | deny             | deny          | deny           | deny    | deny      | deny     
+leases              | deny | deny             | deny          | deny           | deny    | deny      | deny     
+invoices            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payments            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payment_allocations | deny | deny             | deny          | deny           | deny    | deny      | deny     
+gateway_bills       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+audit_log           | deny | deny             | deny          | deny           | deny    | deny      | deny     
+
+UPDATE: every role on every table must be denied (42501)
+                    | anon | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N | manager N | manager B
+--------------------+------+------------------+---------------+----------------+---------+-----------+----------
+organizations       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+memberships         | deny | deny             | deny          | deny           | deny    | deny      | deny     
+units               | deny | deny             | deny          | deny           | deny    | deny      | deny     
+tenants             | deny | deny             | deny          | deny           | deny    | deny      | deny     
+leases              | deny | deny             | deny          | deny           | deny    | deny      | deny     
+invoices            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payments            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payment_allocations | deny | deny             | deny          | deny           | deny    | deny      | deny     
+gateway_bills       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+audit_log           | deny | deny             | deny          | deny           | deny    | deny      | deny     
+
+DELETE: every role on every table must be denied (42501)
+                    | anon | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N | manager N | manager B
+--------------------+------+------------------+---------------+----------------+---------+-----------+----------
+organizations       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+memberships         | deny | deny             | deny          | deny           | deny    | deny      | deny     
+units               | deny | deny             | deny          | deny           | deny    | deny      | deny     
+tenants             | deny | deny             | deny          | deny           | deny    | deny      | deny     
+leases              | deny | deny             | deny          | deny           | deny    | deny      | deny     
+invoices            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payments            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+payment_allocations | deny | deny             | deny          | deny           | deny    | deny      | deny     
+gateway_bills       | deny | deny             | deny          | deny           | deny    | deny      | deny     
+audit_log           | deny | deny             | deny          | deny           | deny    | deny      | deny     
+
+UPDATE tenants by column: only a tenant changing their own phone may succeed (1 row)
+                              | anon | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N | manager N | manager B
+------------------------------+------+------------------+---------------+----------------+---------+-----------+----------
+phone, own tenant row         | deny | 1 row            | 1 row         | 1 row          | deny    | deny      | 0 rows   
+phone, a different tenant row | deny | 0 rows           | 0 rows        | 0 rows         | deny    | deny      | 0 rows   
+full_name, own/any row        | deny | deny             | deny          | deny           | deny    | deny      | deny     
+email, own/any row            | deny | deny             | deny          | deny           | deny    | deny      | deny     
+user_id, own/any row          | deny | deny             | deny          | deny           | deny    | deny      | deny     
+org_id, own/any row           | deny | deny             | deny          | deny           | deny    | deny      | deny     
+
+RPC: POST /rest/v1/rpc/<function>. HTTP status shown; any 4xx is a pass.
+                                    | anon     | aisyah(tenant N) | ben(tenant N) | chen(tenant B) | staff N  | manager N | manager B | service_role
+------------------------------------+----------+------------------+---------------+----------------+----------+-----------+-----------+-------------
+rpc/audit_log_is_append_only        | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/manager_org_ids                 | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/my_invoice_ids                  | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/my_lease_ids                    | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/my_org_ids                      | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/my_tenant_ids                   | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/my_unit_ids                     | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/staff_org_ids                   | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/no_such_function                | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+rpc/staff_org_ids (profile private) | HTTP 406 | HTTP 406         | HTTP 406      | HTTP 406       | HTTP 406 | HTTP 406  | HTTP 406  | HTTP 406    
+rpc/staff_org_ids (profile public)  | HTTP 404 | HTTP 404         | HTTP 404      | HTTP 404       | HTTP 404 | HTTP 404  | HTTP 404  | HTTP 404    
+
+APPEND-ONLY audit_log: attempts by roles that DO hold table privileges
+  service_role PATCH existing row          blocked (HTTP 403)
+  service_role PATCH no matching row       blocked (HTTP 403)
+  service_role DELETE existing row         blocked (HTTP 403)
+  service_role DELETE no matching row      blocked (HTTP 403)
+  owner (postgres) UPDATE                  blocked (append-only trigger)
+  owner (postgres) DELETE                  blocked (append-only trigger)
+  owner (postgres) TRUNCATE                blocked (append-only trigger)
+
+Row counts identical before and after all write attempts: yes
+anon GET /rest/v1/ (OpenAPI) paths: ["/"]  (no tables exposed)
+anon POST /graphql/v1 -> HTTP 406, returns data: no
+
+STORAGE bucket payment-slips: HTTP status per role and action (deny = non-2xx)
+                                          | anon                                  | aisyah(tenant N)                      | staff N                               | manager N                             | manager B                            
+------------------------------------------+---------------------------------------+---------------------------------------+---------------------------------------+---------------------------------------+--------------------------------------
+upload png into own-org folder N          | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 200 stored                       | HTTP 200 stored                       | HTTP 400 deny [RLS]                  
+upload png into folder B                  | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 200 stored                      
+upload text/plain into folder N           | HTTP 400 deny [mime type]             | HTTP 400 deny [mime type]             | HTTP 400 deny [mime type]             | HTTP 400 deny [mime type]             | HTTP 400 deny [mime type]            
+upload 5 MB + 1 byte png into folder N    | HTTP 400 deny [size]                  | HTTP 400 deny [size]                  | HTTP 400 deny [size]                  | HTTP 400 deny [size]                  | HTTP 400 deny [size]                 
+upload png at bucket root (no org folder) | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                  
+overwrite existing object (x-upsert)      | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                   | HTTP 400 deny [RLS]                  
+delete object N                           | HTTP 400 [access denied], object kept | HTTP 400 [access denied], object kept | HTTP 400 [access denied], object kept | HTTP 400 [access denied], object kept | HTTP 400 [access denied], object kept
+list folder N                             | 0 objects                             | 0 objects                             | 2 objects                             | 2 objects                             | 0 objects                            
+download object N with own token          | HTTP 400 deny [not found]             | HTTP 400 deny [not found]             | HTTP 200 bytes                        | HTTP 200 bytes                        | HTTP 400 deny [not found]            
+create 60 s signed URL for object N       | HTTP 400 deny [not found]             | HTTP 400 deny [not found]             | HTTP 200 url                          | HTTP 200 url                          | HTTP 400 deny [not found]            
+public URL (private bucket)               | HTTP 400 deny [not found]             | HTTP 400 deny [not found]             | HTTP 400 deny [not found]             | HTTP 400 deny [not found]             | HTTP 400 deny [not found]            
+fetch signed URL with NO credentials      |                                       |                                       | HTTP 200                              |                                       |                                      
+signed URL lifetime left (s)              |                                       |                                       | 60 s                                  |                                       |                                      
+bucket payment-slips: public=false, file_size_limit=5242880, mime=image/jpeg,image/png,application/pdf
+
+478 checks, 0 failed.
