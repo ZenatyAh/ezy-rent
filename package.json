@@ -13,7 +13,10 @@
     "postinstall": "prisma generate",
     "db:reset": "npx supabase db reset",
     "db:pull": "prisma db pull",
-    "db:sync": "npx supabase db reset && prisma db pull && prisma generate"
+    "db:sync": "npx supabase db reset && prisma db pull && prisma generate",
+    "seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed.ts",
+    "probe": "tsx --conditions=react-server --env-file=.env.local scripts/probe-data-api.ts",
+    "check:db": "tsx --conditions=react-server --env-file=.env.local scripts/check-constraints.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",

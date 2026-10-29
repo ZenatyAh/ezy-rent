@@ -1,9 +1,3 @@
-// GENERATED FROM THE DATABASE. Do not edit by hand.
-// supabase/migrations/ is the source of truth. After changing a migration run `npm run db:sync`
-// (supabase db reset, prisma db pull, prisma generate) and commit the result.
-// Only the generator and datasource blocks below are maintained manually; `prisma db pull`
-// keeps them and rewrites the models.
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -11,4 +5,215 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model audit_log {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  actor_id      String?       @db.Uuid
+  action        String
+  entity_id     String        @db.Uuid
+  details       Json          @default("{}")
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([org_id, created_at(sort: Desc)], map: "audit_log_org_created_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model gateway_bills {
+  id            String        @id @default(dbgenerated("('bill_'::text || replace((gen_random_uuid())::text, '-'::text, ''::text))"))
+  org_id        String        @db.Uuid
+  lease_id      String        @db.Uuid
+  amount_sen    BigInt
+  status        bill_status   @default(pending)
+  created_by    String?       @db.Uuid
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime      @default(now()) @db.Timestamptz(6)
+  leases        leases        @relation(fields: [lease_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments      payments?
+
+  @@index([lease_id], map: "gateway_bills_lease_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invoices {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id              String                @db.Uuid
+  lease_id            String                @db.Uuid
+  kind                invoice_kind
+  period_index        Int?
+  period_start        DateTime?             @db.Date
+  period_end          DateTime?             @db.Date
+  due_date            DateTime              @db.Date
+  amount_sen          BigInt
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  leases              leases                @relation(fields: [lease_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations       organizations         @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_allocations payment_allocations[]
+
+  @@unique([id, org_id])
+  @@unique([lease_id, period_index])
+  @@index([lease_id, due_date], map: "invoices_lease_due_idx")
+  @@index([org_id, due_date], map: "invoices_org_due_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This table contains exclusion constraints and requires additional setup for migrations. Visit https://pris.ly/d/exclusion-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model leases {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id           String          @db.Uuid
+  unit_id          String          @db.Uuid
+  tenant_id        String          @db.Uuid
+  start_date       DateTime        @db.Date
+  end_date         DateTime        @db.Date
+  monthly_rent_sen BigInt
+  deposit_sen      BigInt
+  created_by       String?         @db.Uuid
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  gateway_bills    gateway_bills[]
+  invoices         invoices[]
+  organizations    organizations   @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenants          tenants         @relation(fields: [tenant_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  units            units           @relation(fields: [unit_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  payments         payments[]
+
+  @@unique([id, org_id])
+  @@index([org_id])
+  @@index([tenant_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model memberships {
+  user_id       String        @id @db.Uuid
+  org_id        String        @db.Uuid
+  role          member_role
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organizations {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  audit_log           audit_log[]
+  gateway_bills       gateway_bills[]
+  invoices            invoices[]
+  leases              leases[]
+  memberships         memberships[]
+  payment_allocations payment_allocations[]
+  payments            payments[]
+  tenants             tenants[]
+  units               units[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payment_allocations {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  payment_id    String        @db.Uuid
+  invoice_id    String        @db.Uuid
+  amount_sen    BigInt
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  invoices      invoices      @relation(fields: [invoice_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments      payments      @relation(fields: [payment_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([payment_id, invoice_id])
+  @@index([invoice_id], map: "payment_allocations_invoice_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model payments {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id              String                @db.Uuid
+  lease_id            String                @db.Uuid
+  amount_sen          BigInt
+  unapplied_sen       BigInt                @default(0)
+  method              payment_method
+  status              payment_status
+  received_at         DateTime              @db.Timestamptz(6)
+  slip_path           String?               @unique
+  gateway_bill_id     String?               @unique
+  created_by          String?               @db.Uuid
+  decided_by          String?               @db.Uuid
+  decided_at          DateTime?             @db.Timestamptz(6)
+  decision_reason     String?
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  payment_allocations payment_allocations[]
+  gateway_bills       gateway_bills?        @relation(fields: [gateway_bill_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leases              leases                @relation(fields: [lease_id, org_id], references: [id, org_id], onDelete: NoAction, onUpdate: NoAction)
+  organizations       organizations         @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@index([lease_id, status], map: "payments_lease_status_idx")
+  @@index([org_id, received_at], map: "payments_org_received_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tenants {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  user_id       String?       @unique @db.Uuid
+  full_name     String
+  email         String
+  phone         String?
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  leases        leases[]
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@index([org_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model units {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  name          String
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  leases        leases[]
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, org_id])
+  @@unique([org_id, name])
+}
+
+enum bill_status {
+  pending
+  paid
+  failed
+}
+
+enum invoice_kind {
+  deposit
+  rent
+}
+
+enum member_role {
+  manager
+  staff
+}
+
+enum payment_method {
+  cash
+  bank_transfer
+  online
+}
+
+enum payment_status {
+  pending_verification
+  approved
+  rejected
+  voided
 }
