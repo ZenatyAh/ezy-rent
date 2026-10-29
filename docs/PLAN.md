@@ -4,6 +4,31 @@
 > Timer at planning: **3h 35m**. Clock for the boxes below starts at approval.
 > Spec wins over CLAUDE.md. Every phase ends with: what changed and why, files list, verification output, **STOP for your check**.
 
+## RE-PLAN after Phase 0 (supersedes the box table in section 2)
+
+Phase 0 took ~35 min instead of 15 (about 15 min of it was slow npm: registry fetches of 7–84 s each). Timer after Phase 0: **2h58m**; Phase 7 keeps its 30 min, so **148 min** remain for building. Cuts come from UI, checkpoints and bonus only; billing, access control, payments and webhook keep their full boxes.
+
+| Phase | Box | Timer at start → end | Change |
+|---|---|---|---|
+| 1 Billing + TZ tests | 20m | 2:58 → 2:38 | none |
+| 2 Schema + access control + seed stage 1 | 35m | 2:38 → 2:03 | none |
+| 3 Auth helper + leases API + seed stage 2 | 15m | 2:03 → 1:48 | none |
+| ★ CP1 safe submission, **first push** | 6m | 1:48 → 1:42 | 10 → 6 |
+| 4 Payments + allocation + report + seed stage 3 | 35m | 1:42 → 1:07 | none |
+| 5 Gateway bills + webhook + return page | 20m | 1:07 → 0:47 | none (CP2 = local tag only, no box) |
+| 6 UI, minimal subset | 17m | 0:47 → 0:30 | 35 → 17 |
+| 7 REVIEW, DECISIONS, README, ai-logs, submit | 30m | 0:30 → 0:00 | none |
+
+**UI at 17 min means**: login + role redirect; staff/manager lease page (invoices, payments with signed slip link, record-payment form with ringgit + MYT datetime + slip upload, approve/reject/void dialogs with reasons); dashboard as plain tables (overdue count + 6-month report); plain leases table; tenant page on browser supabase-js (invoices, amount due now, Pay now, phone edit); `/payments/return`; toasts and MYT formatting everywhere. **Cut**: create-lease form, search/pagination, realtime, skeleton polish, every bonus item. Time saved in Phases 1–5 flows to UI; if a core phase overruns, UI shrinks further (lease page + tenant page + return page first).
+
+**Decisions after Phase 0**
+- `.env.example` keeps the real local-stack keys (brief asks for local values; graders replace only "if they differ"). If GitHub push protection blocks the push, the owner allows it as a local default test key.
+- Phase 2 sets `auto_expose_new_tables = false` in `supabase/config.toml` as deny-by-default, **and** keeps the explicit revokes; the Data API probe test proves the result. Because `service_role` keeps its table privileges (Q7), it needs explicit GRANTs in the migration once auto-expose is off.
+- Remote `origin` = `https://github.com/ZenatyAh/ezy-rent.git`, added in Phase 1, **first push at CP1** and only on the owner's say-so.
+- Phase 2 schema note from Phase 1: the brief's last-period formula can round to **0 sen** (e.g. 1 sen rent for 1 of 31 days), so `invoices.amount_sen` gets `CHECK (amount_sen >= 0)`, not `> 0`.
+
+---
+
 ## Review outcome: APPROVED with these decisions (supersede anything below that disagrees)
 
 | # | Decision |
