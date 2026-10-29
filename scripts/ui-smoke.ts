@@ -38,6 +38,13 @@ async function main(): Promise<void> {
   check(path(await get('/leases', aisyah)) === '/portal', 'tenant cannot open /leases')
   check(path(await get(`/leases/${aisyahLease.id}`, aisyah)) === '/portal', "tenant cannot open the staff lease page, not even their own")
 
+  // tenant portal: tenants only; the data itself is loaded in the browser
+  const portal = await get('/portal', aisyah)
+  check(portal.status === 200 && portal.html.includes('Loading your lease'), 'tenant: /portal opens and shows a loading skeleton first', `status ${portal.status}`)
+  check(!portal.html.includes('Aisyah Rahman') && !portal.html.includes('RM 3,000.00'), 'tenant: /portal HTML carries no lease data (it is fetched in the browser under RLS)')
+  check(path(await get('/portal', manager)) === '/dashboard', 'manager cannot open /portal')
+  check(path(await get('/portal')) === '/login', 'GET /portal without a login goes to /login')
+
   // dashboard
   const dashboard = await get('/dashboard', manager)
   const overdue = /data-testid="overdue-count"[^>]*>(\d+)</.exec(dashboard.html)?.[1]
