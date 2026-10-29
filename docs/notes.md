@@ -62,3 +62,14 @@ Format: what the AI got wrong, how it was noticed, where to point in `ai-logs/`.
 - Bearer token wins over the cookie; a bad Bearer header is a 401 with no fallback to the cookie.
 - The no-role test creates its own auth user and deletes it (`auth.users` is back to 7 afterwards). The seed creates only the brief's data.
 - Integration tests leave `lease.created` audit rows (append-only), so run `npx supabase db reset && npm run seed` after `npm run test:int`.
+
+## Phase 4 notes
+- **Mutation check (tests can fail):** with `lockLease` turned into a no-op, the 8-way concurrent cap test accepted 7 payments instead of 3, and 6 concurrent approvals returned `[200, 500, 500, 500, 500, 500]` instead of `[200, 409 x5]`: the unique constraint on `payment_allocations (payment_id, invoice_id)` still prevented a double allocation, but as a crash, not a clean 409. The two-request RM 800 / RM 700 test happened to pass without the lock (timing), so the 8-way test is the one that proves the lock. The lock was restored.
+- Locking: every money operation (record + cap, approve, reject, void, allocation) is one `$transaction` whose first statement is `select id from leases where id = $1 for update`, then it re-reads the payment status and balances inside the lock.
+- Order of checks for payments: visible record (404) -> role (403) -> body (400) -> state (409) -> cap or balance (422). A reject or void with no reason on a payment in the wrong state is a 400, not a 409.
+- `receivedAt` must be ISO 8601 with an offset and a real date and time: `new Date()` silently turns 2026-02-30 into Mar 2 and accepts 24:00, so `parseOffsetInstant` checks the parts first.
+- Slip cleanup: only deletes a file in the caller's own organization folder that no payment references, so a failing request can never delete another payment's slip. It runs for every failure after authentication (400, 404, 422, a lost race on the same slip).
+- A manager-recorded payment writes a `payment.approved` audit row with `auto: true`; a staff-recorded one writes nothing until a manager approves or rejects it.
+- Void leaves the voided payment's own `unapplied_sen` and every other payment untouched (review decision Q5).
+- Collections: month = `received_at at time zone 'Asia/Kuala_Lumpur'`, range edges are midnight Malaysia time; months are filled with zeros in TypeScript (`monthRange`). Counts only `approved` payments, so pending, rejected and voided ones are excluded.
+- Phase 3's Aisyah shape test had to change when seed stage 3 added her payments (it asserted `paidSen: 0`): expected, not a bug.

@@ -48,11 +48,11 @@ Call the API with `Authorization: Bearer <token>`; `node --env-file=.env.local s
 - `src/lib/billing.ts`: `generateSchedule`, `invoiceStatus`, `parseRinggitToSen`, pure and timezone independent (120 tests, green under all three timezones).
 - Database (all in `supabase/migrations/`): tables with composite foreign keys, database-level lease overlap prevention, RLS and grants (anon gets nothing; the Data API allows only the reads in the brief plus a tenant updating their own phone), append-only `audit_log`, private `payment-slips` bucket with org-scoped policies.
 - `POST /api/leases` and `GET /api/leases/:leaseId` with 401/403/404 handling, Bearer token or session cookie.
-- Seed: both organizations, the 7 accounts, tenants, units and the 4 leases with their invoices.
+- Payments: record (cash / bank transfer with an uploaded slip), the cap, approve / reject / void, allocation, `audit_log` rows, and `GET /api/reports/collections` (months in Malaysia time). Every money operation is one transaction that locks the lease row first. If recording fails after a slip was uploaded, the file is removed again.
+- Seed: both organizations, the 7 accounts, tenants, units, the 4 leases with their invoices, and Aisyah's two payments (cash by the manager; bank transfer by staff with a slip, approved by the manager), all created through the same services the API uses.
 
 ## Skipped so far (not done yet)
 
-- Payments: recording, cap, approve/reject/void, allocation, collections report, slip upload cleanup. The seed does not yet contain Aisyah's two payments.
 - Online payments: gateway bills, `POST /api/webhooks/gateway`, `/payments/return`, `gateway-sim.mjs`.
 - All UI.
 - `REVIEW.md` and `DECISIONS.md`.

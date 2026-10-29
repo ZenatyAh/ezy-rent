@@ -162,6 +162,8 @@ describe('GET /api/leases/:leaseId', () => {
     const schedule = generateSchedule({ startDate: '2026-01-31', endDate: '2026-07-15', monthlyRentSen: 150000, depositSen: 300000 })
     expect(body.invoices).toHaveLength(7)
     const now = new Date()
+    // seed stage 3: cash 300000 fills the deposit, the bank transfer 200000 fills rent 0 and half of rent 1
+    const seededPaid = [300000, 150000, 50000, 0, 0, 0, 0]
     body.invoices.forEach((invoice, i) => {
       const expected = schedule[i]
       expect(Object.keys(invoice).sort()).toEqual(INVOICE_KEYS)
@@ -173,14 +175,20 @@ describe('GET /api/leases/:leaseId', () => {
         periodEnd: expected.periodEnd,
         dueDate: expected.dueDate,
         amountSen: expected.amountSen,
-        paidSen: 0,
-        status: invoiceStatus({ dueDate: expected.dueDate, amountSen: expected.amountSen, paidSen: 0 }, now),
+        paidSen: seededPaid[i],
+        status: invoiceStatus({ dueDate: expected.dueDate, amountSen: expected.amountSen, paidSen: seededPaid[i] }, now),
       })
       expect(Number.isSafeInteger(invoice.amountSen)).toBe(true)
     })
     expect(body.invoices[0].kind).toBe('deposit')
     expect(body.invoices[6].amountSen).toBe(77419)
-    expect(body.payments).toEqual([])
+    expect(body.payments).toHaveLength(2)
+    for (const payment of body.payments) {
+      expect(Object.keys(payment).sort()).toEqual(['amountSen', 'id', 'method', 'receivedAt', 'status', 'unappliedSen'])
+      expect(payment.id).toMatch(UUID)
+    }
+    expect(body.payments[0]).toMatchObject({ amountSen: 300000, unappliedSen: 0, method: 'cash', status: 'approved', receivedAt: '2026-01-31T10:00:00.000+08:00' })
+    expect(body.payments[1]).toMatchObject({ amountSen: 200000, unappliedSen: 0, method: 'bank_transfer', status: 'approved', receivedAt: '2026-03-01T00:30:00.000+08:00' })
   })
 
   it.each(['manager', 'staff', 'aisyah'])('lets %s read the lease', async (who) => {

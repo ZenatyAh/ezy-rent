@@ -5,6 +5,9 @@ import { createClient } from '@supabase/supabase-js'
 import type { Actor } from '@/lib/actor'
 import { prisma } from '@/lib/prisma'
 import { createLease } from '@/lib/services/leases'
+import { approvePayment, recordPayment } from '@/lib/services/payments'
+import { SLIP_BUCKET } from '@/lib/services/slips'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // All seeded accounts share this password (also submitted with the work).
 const PASSWORD = 'Northwind#2026'
@@ -111,6 +114,44 @@ async function seedLeases(accounts: SeededAccounts): Promise<Record<string, stri
   return leaseIds
 }
 
+// A 1x1 PNG standing in for the photographed bank transfer slip.
+const SLIP_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+)
+
+// Stage 3: Aisyah's two payments, recorded and approved through the payment service (so they are
+// allocated and audited exactly as the app does it).
+//   1. cash RM 3,000.00 received 2026-01-31 10:00 Malaysia time, recorded by the manager (approved at once)
+//   2. bank transfer RM 2,000.00 received 2026-03-01 00:30 Malaysia time, recorded by staff with a slip
+//      (pending), then approved by the manager
+async function seedPayments(accounts: SeededAccounts, leaseId: string): Promise<void> {
+  const orgId = accounts.orgIds['Northwind Properties']
+  const manager: Actor = { userId: accounts.userIds['manager@northwind.test'], orgId, role: 'manager' }
+  const staff: Actor = { userId: accounts.userIds['staff@northwind.test'], orgId, role: 'staff' }
+
+  await recordPayment(manager, leaseId, {
+    amountSen: 300000,
+    method: 'cash',
+    receivedAt: '2026-01-31T10:00:00+08:00',
+  })
+
+  // The browser uploads the slip to Storage first; the seed does the same with the secret key.
+  const slipPath = `${orgId}/aisyah-transfer-2026-03-01.png`
+  const { error } = await createAdminClient()
+    .storage.from(SLIP_BUCKET)
+    .upload(slipPath, SLIP_PNG, { contentType: 'image/png', upsert: true })
+  if (error) throw new Error(`Could not upload the seed slip: ${error.message}`)
+
+  const pending = await recordPayment(staff, leaseId, {
+    amountSen: 200000,
+    method: 'bank_transfer',
+    receivedAt: '2026-03-01T00:30:00+08:00',
+    slipPath,
+  })
+  await approvePayment(manager, pending.id)
+}
+
 async function main(): Promise<void> {
   if ((await prisma.organizations.count()) > 0) {
     console.log('The database already has data. Run `npx supabase db reset` first, then `npm run seed`.')
@@ -126,7 +167,8 @@ async function main(): Promise<void> {
   const leaseIds = await seedLeases(accounts)
   const invoices = await prisma.invoices.count()
   console.log(`Seeded ${Object.keys(leaseIds).length} leases with ${invoices} invoices.`)
-  // Stage 3 (Aisyah's two payments) is added with the payment service.
+  await seedPayments(accounts, leaseIds['aisyah@northwind.test'])
+  console.log(`Seeded ${await prisma.payments.count()} payments, ${await prisma.payment_allocations.count()} allocations.`)
 }
 
 main()
