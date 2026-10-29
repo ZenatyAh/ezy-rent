@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ezy-rent: rent collection for Malaysian property managers
 
-## Getting Started
+Next.js 16 (App Router), TypeScript, Supabase (Postgres, Auth, Storage), Prisma 7, shadcn/ui, Tailwind.
+The brief is in `docs/SPEC.md`, the plan in `docs/PLAN.md`, running notes in `docs/notes.md`.
 
-First, run the development server:
+> **Status: work in progress (checkpoint 1).** This README is the short version; the final one is written
+> at the end.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Run it
+
+Needs Docker, Node 22 or newer, and the Supabase CLI (used through `npx`).
+
+```
+npx supabase start            # starts the local stack from supabase/config.toml
+npx supabase db reset         # rebuilds the database from supabase/migrations/
+npm install                   # also runs `prisma generate`
+cp .env.example .env.local    # local stack values; replace keys with `npx supabase status` if they differ
+npm run seed                  # creates exactly the data from section 2 of the brief
+npm run build && npm start    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Test accounts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All seeded accounts share one password: `Northwind#2026`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Account | Role | Organization |
+|---|---|---|
+| manager@northwind.test | manager | Northwind Properties |
+| staff@northwind.test | staff | Northwind Properties |
+| aisyah@northwind.test, ben@northwind.test, probe@northwind.test | tenant | Northwind Properties |
+| manager@beta.test | manager | Beta Realty |
+| chen@beta.test | tenant | Beta Realty |
 
-## Learn More
+Call the API with `Authorization: Bearer <token>`; `node --env-file=.env.local scripts/token.mjs <email>` prints one.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | What it does |
+|---|---|
+| `npm test` / `npm run test:tz` | Unit tests; the second runs them under UTC, Asia/Kuala_Lumpur and America/New_York |
+| `npm run test:int` | API integration tests; needs the app running and a seeded database. They leave audit rows behind (append-only), so run `npx supabase db reset && npm run seed` afterwards |
+| `npm run probe` | Calls the Supabase Data API and Storage as every role and prints role x table x action matrices (output of the Phase 2 run: `docs/probe-phase2.txt`) |
+| `npm run check:db` | 26 checks of the database constraints (overlap, composite foreign keys, CHECKs, append-only audit log) |
+| `npm run db:sync` | `supabase db reset`, then `prisma db pull` and `prisma generate`. `prisma/schema.prisma` is generated from the migrations, never edited by hand |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## What works so far
 
-## Deploy on Vercel
+- `src/lib/billing.ts`: `generateSchedule`, `invoiceStatus`, `parseRinggitToSen`, pure and timezone independent (120 tests, green under all three timezones).
+- Database (all in `supabase/migrations/`): tables with composite foreign keys, database-level lease overlap prevention, RLS and grants (anon gets nothing; the Data API allows only the reads in the brief plus a tenant updating their own phone), append-only `audit_log`, private `payment-slips` bucket with org-scoped policies.
+- `POST /api/leases` and `GET /api/leases/:leaseId` with 401/403/404 handling, Bearer token or session cookie.
+- Seed: both organizations, the 7 accounts, tenants, units and the 4 leases with their invoices.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Skipped so far (not done yet)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Payments: recording, cap, approve/reject/void, allocation, collections report, slip upload cleanup. The seed does not yet contain Aisyah's two payments.
+- Online payments: gateway bills, `POST /api/webhooks/gateway`, `/payments/return`, `gateway-sim.mjs`.
+- All UI.
+- `REVIEW.md` and `DECISIONS.md`.
+
+## Known issues and notes
+
+- There is no limit on lease length: a lease of thousands of years would insert one invoice per month in a single transaction (30 s timeout).
+- `.env.example` contains Supabase's local-stack default keys (identical on every local stack, not real secrets). The secret key is only used server-side.
+- `service_role` keeps its table privileges; `audit_log` stays append-only for it, and for the table owner, through triggers.
+- A tenant reading `memberships` or `audit_log` through the Data API gets zero rows rather than an error.
+- Prisma models keep the table and column names (`leases`, `org_id`), so server code reads snake_case; the API maps to camelCase in `src/lib/serializers.ts`.

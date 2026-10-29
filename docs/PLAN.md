@@ -4,6 +4,22 @@
 > Timer at planning: **3h 35m**. Clock for the boxes below starts at approval.
 > Spec wins over CLAUDE.md. Every phase ends with: what changed and why, files list, verification output, **STOP for your check**.
 
+## RE-PLAN 2 after Phase 3 (timer 1h52m at CP1; supersedes the boxes below)
+
+Code freeze is fixed at **30 minutes before the timer ends**, whatever state the UI is in. Phase 7 (write-ups) runs in those last 30 minutes.
+
+| Phase | Box |
+|---|---|
+| CP1 minimal: short README, commit ai-logs, push (no fresh-clone check; that is done once at the end) | ~5m |
+| 4 Payments + allocation + report + seed stage 3 | 30m |
+| 5 Gateway bills + webhook + return page | 20m |
+| 6 UI, core screens only: staff lease page (record / approve / reject / void), tenant portal (pay now, phone edit), return page, dashboard | 20m |
+| 7 REVIEW, DECISIONS, README, ai-logs, final fresh-clone check, submit | 30m |
+
+Decisions at the Phase 3 review: API instants keep the +08:00 offset; no lease-length cap (listed in README known issues); remote origin is https://github.com/ZenatyAh/ezy-rent.git and CP1 is pushed on the owner's go.
+
+---
+
 ## RE-PLAN after Phase 0 (supersedes the box table in section 2)
 
 Phase 0 took ~35 min instead of 15 (about 15 min of it was slow npm: registry fetches of 7–84 s each). Timer after Phase 0: **2h58m**; Phase 7 keeps its 30 min, so **148 min** remain for building. Cuts come from UI, checkpoints and bonus only; billing, access control, payments and webhook keep their full boxes.
