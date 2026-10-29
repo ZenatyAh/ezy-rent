@@ -42,10 +42,10 @@ Nothing else moves. A void deletes only that payment's allocations (`src/lib/ser
 
 ## 6. Things the AI assistant got wrong (three of them)
 
-I found these by reviewing its plan in a second AI session (export in `ai-logs/`), not in the code:
+I found these by reviewing the assistant's plan with a separate AI chat assistant (that conversation is not part of `ai-logs/`), not by reading the code. Each correction is recorded in `ai-logs/session-1.txt`:
 
-1. It revoked EXECUTE on everything, including the `private.*` helpers the RLS policies call, so every RLS query would have failed. Plan: `ai-logs/session-1.txt:977`, `ai-logs/session-1.txt:1216`; fix: `supabase/migrations/20261029120300_security.sql:59`, `supabase/migrations/20261029120300_security.sql:66`; correction: `ai-logs/session-1.txt:1842`.
-2. Its REVIEW notes cited SPEC.md line numbers instead of per-file ones: `ai-logs/session-1.txt:1387`; correction: `ai-logs/session-1.txt:1849`.
-3. Its review point 7 (webhook lock around `allocate`) contradicted "assume allocate is correct": `ai-logs/session-1.txt:1425`; removed at `ai-logs/session-1.txt:3222`.
+1. It revoked EXECUTE on everything, including the `private.*` helpers the RLS policies call, so every RLS query would have failed. Correction: `ai-logs/session-1.txt:1842`; fix: `supabase/migrations/20261029120300_security.sql:59`, `supabase/migrations/20261029120300_security.sql:66`.
+2. Its REVIEW notes cited SPEC.md line numbers instead of per-file ones. Correction: `ai-logs/session-1.txt:1849`.
+3. Its review point 7 (webhook lock around `allocate`) contradicted "assume allocate is correct". Correction: `ai-logs/session-1.txt:3222`.
 
 Mistakes caught by tests are in `docs/notes.md`, entries 3 to 7.

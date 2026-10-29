@@ -60,6 +60,10 @@ Call the API with `Authorization: Bearer <token>`; `node --env-file=.env.local s
 
 - A create-lease form (leases are created with `POST /api/leases`), search and pagination on the leases list, realtime updates, charts. The dashboard shows the collections as a table.
 
+## AI use
+
+A separate AI chat assistant was also used for planning and review; its transcript is not included.
+
 ## Known issues and notes
 
 - There is no limit on lease length: a lease of thousands of years would insert one invoice per month in a single transaction (30 s timeout).
