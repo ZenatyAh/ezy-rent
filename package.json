@@ -17,6 +17,7 @@
     "db:sync": "npx supabase db reset && prisma db pull && prisma generate",
     "seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed.ts",
     "probe": "tsx --conditions=react-server --env-file=.env.local scripts/probe-data-api.ts",
+    "race:webhook": "tsx --conditions=react-server --env-file=.env.local scripts/webhook-race.ts",
     "check:db": "tsx --conditions=react-server --env-file=.env.local scripts/check-constraints.ts"
   },
   "dependencies": {

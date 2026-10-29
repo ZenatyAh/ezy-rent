@@ -73,3 +73,39 @@ Format: what the AI got wrong, how it was noticed, where to point in `ai-logs/`.
 - Void leaves the voided payment's own `unapplied_sen` and every other payment untouched (review decision Q5).
 - Collections: month = `received_at at time zone 'Asia/Kuala_Lumpur'`, range edges are midnight Malaysia time; months are filled with zeros in TypeScript (`monthRange`). Counts only `approved` payments, so pending, rejected and voided ones are excluded.
 - Phase 3's Aisyah shape test had to change when seed stage 3 added her payments (it asserted `paidSen: 0`): expected, not a bug.
+
+## EVIDENCE for DECISIONS Q1 and Q2: removing the locks (numbers)
+Both experiments were run against the running app on a fresh lease/bill each time, then the code (and, for E3/E4, the UNIQUE constraint) was restored and verified by grep and `pg_constraint`.
+
+**Q2: two staff record at the same moment, cap RM 1,000.00 (`payments.test.ts`)**
+| run | result |
+|---|---|
+| lease lock intact, 8 simultaneous RM 300.00 payments (staff and manager mixed) | 3 accepted (201), 5 rejected (422); approved + pending total RM 900.00 |
+| `lockLease` made a no-op | **7 of 8 accepted**, total RM 2,100.00 on a RM 1,000.00 lease (the cap is blown) |
+| lease lock intact, 6 simultaneous approvals of one payment | `[200, 409 x5]`, one allocation set, one audit row |
+| `lockLease` made a no-op | `[200, 500 x5]`: the UNIQUE (payment_id, invoice_id) constraint still stopped a double allocation, but as a crash instead of a clean 409 |
+The two-request RM 800 / RM 700 test passed even without the lock (timing), so the 8-way test is the one that proves the lock.
+
+**Q1: the same paid=true callback delivered 10 times at once (`npm run race:webhook`, three runs each)**
+| experiment | defences left | outcome of 10 identical deliveries |
+|---|---|---|
+| E0 intact | bill-row lock + replay handling + UNIQUE | HTTP 200 x10, **1 payment**, allocated 350000 of 350000 |
+| E1 bill-row lock removed | replay handling + UNIQUE | HTTP 200 x10, **1 payment** |
+| E2 lock and replay handling removed | UNIQUE only | HTTP 200 x1, **500 x9**, 1 payment |
+| E3 lock, replay handling and the UNIQUE constraint all removed | none | HTTP 200 x10, **4, 10 and 10 payments** (unapplied up to 3,150,000 sen on a 350,000 sen bill) |
+| E4 UNIQUE dropped, lock kept | lock + replay handling | HTTP 200 x10, **1 payment** |
+Reading: each layer alone is enough (E1: the constraint, E4: the lock); the constraint is the structural guarantee, the lock makes the losers wait and answer 200 without an error, and the replay handling turns a lost race into 200 instead of 500.
+
+## Phase 5 notes
+- Webhook order: duplicate field names or bad signature (401) -> syntax of the signed fields (400: id, paid, and for paid=true an integer paid_amount and a paid_at in the gateway format) -> unknown bill (404) -> paid=true with the wrong amount (422, checked before the bill's status) -> status transitions. paid=false does not look at paid_amount or paid_at.
+- `paid_at` ("2026-04-01 00:30:12 +0800") is not ISO 8601, so `parseGatewayTime` matches that exact shape and hands the parts to the strict `parseOffsetInstant`; `received_at` is that instant.
+- The signature test in `tests/integration/gateway.test.ts` signs with its own copy of the brief's algorithm, so an error in `src/lib/gateway.ts` cannot be hidden by the same error in the test. The brief's vector is also a unit test (source string and signature).
+- Pay now: amount = unpaid part of invoices with due_date <= malaysiaDate(now); pending payments do not reduce it, approved ones do; a lease with nothing due is a 422; only the lease's own tenant may create a bill (staff/manager 403, anyone else 404).
+- `/payments/return` shows the bill's status from the database and nothing else; `paid` in the URL is ignored. It requires a login and says "Bill not found" for anyone who may not see the bill (review decision Q8). A test visits it with paid=true on a pending bill and checks the bill, payments and allocations did not change.
+- A bill can be settled after it failed (paid=true on a failed bill is allowed by the brief's table); a paid bill never goes back.
+- Money that arrives after the invoices were paid another way is kept as `unapplied_sen` on the online payment (the only payment type that can have one).
+
+## AI mistakes found during Phase 5 (for DECISIONS Q6)
+- **The experiment filter that skipped the test I was asking about.** The first run of the lock-removal experiment used `-t "identical deliveries at the same moment|..."`, but the test title is "10 identical deliveries arrive at the same moment". Vitest silently skipped it and printed "2 passed | 26 skipped", and every variant looked fine. Noticed because the summary said 2 tests, not 3. Re-ran with the right pattern and `--reporter=verbose`, so each test is named in the output.
+- **A meaningless id guard on the return page.** The first draft validated the bill id with a UUID check on a transformed string, but bill ids are `bill_` + hex and are only used as a bound query parameter. Found while re-reading the file before running it; replaced with a length limit.
+- **Test left unfinished while drafting** (an unused `year` variable and a meaningless `expect(d).toBeGreaterThan(0)` in the "due today" test); found by the first lint run and removed.

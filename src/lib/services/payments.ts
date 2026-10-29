@@ -7,16 +7,10 @@ import { HttpError, isUuid, notFound } from '@/lib/http'
 import { senToNumber } from '@/lib/money'
 import { prisma } from '@/lib/prisma'
 import { findVisibleLease } from '@/lib/services/leases'
+import { lockLease } from '@/lib/services/locks'
 import { assertSlipUsable, removeOrphanedSlip } from '@/lib/services/slips'
 
 type Tx = Prisma.TransactionClient
-
-// Every money-changing operation below is one transaction that starts by locking the lease row.
-// Locking the lease serializes recording (the cap), approving, rejecting, voiding and allocating for
-// that lease: a second request waits, then re-reads the payment status and the balances it needs.
-async function lockLease(tx: Tx, leaseId: string): Promise<void> {
-  await tx.$queryRaw`select id from leases where id = ${leaseId}::uuid for update`
-}
 
 // remaining = all invoices minus everything allocated to them; pending = payments waiting for approval.
 async function balances(tx: Tx, leaseId: string): Promise<{ remaining: bigint; pending: bigint }> {
