@@ -18,6 +18,7 @@
     "seed": "tsx --conditions=react-server --env-file=.env.local scripts/seed.ts",
     "probe": "tsx --conditions=react-server --env-file=.env.local scripts/probe-data-api.ts",
     "smoke:ui": "tsx --conditions=react-server --env-file=.env.local scripts/ui-smoke.ts",
+    "check:secrets": "node scripts/check-secrets.mjs",
     "race:webhook": "tsx --conditions=react-server --env-file=.env.local scripts/webhook-race.ts",
     "check:db": "tsx --conditions=react-server --env-file=.env.local scripts/check-constraints.ts"
   },

@@ -35,7 +35,9 @@ export function toMytInput(now: Date): string {
 // What a user typed into a datetime-local input is Malaysia time, whatever their device's timezone, so the
 // browser's own parsing is never used: the offset is appended and the server reads an exact instant.
 export function mytInputToIso(value: string): string {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? `${value}:00+08:00` : value
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00+08:00`
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(value)) return `${value}+08:00` // some browsers include seconds
+  return value
 }
 
 // The 'YYYY-MM' of the month `count - 1` months before `month` (count = 6 -> five months back).

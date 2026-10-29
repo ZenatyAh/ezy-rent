@@ -23,6 +23,8 @@ describe('time formatting (Malaysia time, independent of the machine timezone)',
   it('turns a datetime-local value into an exact instant in Malaysia time', () => {
     expect(mytInputToIso('2026-03-01T00:30')).toBe('2026-03-01T00:30:00+08:00')
     expect(new Date(mytInputToIso('2026-03-01T00:30')).toISOString()).toBe('2026-02-28T16:30:00.000Z')
+    expect(mytInputToIso('2026-03-01T00:30:45')).toBe('2026-03-01T00:30:45+08:00') // a browser that includes seconds
+    expect(mytInputToIso('')).toBe('') // left alone, so the server answers with a clear error
   })
 
   it('shows now in Malaysia time for a datetime-local input', () => {

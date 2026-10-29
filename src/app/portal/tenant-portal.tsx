@@ -51,6 +51,7 @@ async function load(tenantId: string): Promise<Row> {
     .order('start_date', { ascending: false })
   if (leases.error) throw new Error(leases.error.message)
   const ids = leases.data.map((lease) => lease.id)
+  if (ids.length === 0) return { tenant: tenant.data, leases: [] } // nothing else to ask for
 
   const [invoices, allocations, payments] = await Promise.all([
     supabase.from('invoices').select('id, lease_id, kind, period_start, period_end, due_date, amount_sen').in('lease_id', ids).order('due_date').order('kind').order('period_index'),
