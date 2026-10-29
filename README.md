@@ -59,7 +59,6 @@ Call the API with `Authorization: Bearer <token>`; `node --env-file=.env.local s
 ## Skipped so far (not done yet)
 
 - A create-lease form (leases are created with `POST /api/leases`), search and pagination on the leases list, realtime updates, charts. The dashboard shows the collections as a table.
-- `REVIEW.md` and `DECISIONS.md` (being written at the end).
 
 ## Known issues and notes
 
