@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:tz": "node scripts/test-tz.mjs",
+    "test:int": "vitest run --config vitest.int.config.ts",
     "postinstall": "prisma generate",
     "db:reset": "npx supabase db reset",
     "db:pull": "prisma db pull",

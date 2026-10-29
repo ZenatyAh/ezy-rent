@@ -201,6 +201,9 @@ async function loadIds(): Promise<Ids> {
     if (!rows[0]) throw new Error(`Missing seed data for: ${q}`)
     return rows[0].id
   }
+  // Tables that may legitimately be empty in the seed (no bills, maybe no payments yet): a random id is
+  // a fine write target, because a denied write is rejected before any row is looked up.
+  const maybe = async (q: string) => (await sql<{ id: string }>(q))[0]?.id ?? randomUUID()
   const orgN = await one(`select id from organizations where name = 'Northwind Properties'`)
   const orgB = await one(`select id from organizations where name = 'Beta Realty'`)
   const tenant = async (email: string) => one(`select id from tenants where email = '${email}'`)
@@ -216,10 +219,10 @@ async function loadIds(): Promise<Ids> {
     membershipUser: await one(`select user_id as id from memberships where org_id = '${orgN}' and role = 'manager'`),
     lease: await one(`select id from leases where tenant_id = '${aisyah}'`),
     invoice: await one(`select i.id from invoices i join leases l on l.id = i.lease_id where l.tenant_id = '${aisyah}' order by i.due_date limit 1`),
-    payment: await one(`select p.id from payments p join leases l on l.id = p.lease_id where l.tenant_id = '${aisyah}' limit 1`),
-    allocation: await one(`select a.id from payment_allocations a join payments p on p.id = a.payment_id join leases l on l.id = p.lease_id where l.tenant_id = '${aisyah}' limit 1`),
-    bill: await one(`select b.id from gateway_bills b join leases l on l.id = b.lease_id where l.tenant_id = '${aisyah}' limit 1`),
-    audit: await one(`select id from audit_log where org_id = '${orgN}' limit 1`),
+    payment: await maybe(`select p.id from payments p join leases l on l.id = p.lease_id where l.tenant_id = '${aisyah}' limit 1`),
+    allocation: await maybe(`select a.id from payment_allocations a join payments p on p.id = a.payment_id join leases l on l.id = p.lease_id where l.tenant_id = '${aisyah}' limit 1`),
+    bill: await maybe(`select b.id from gateway_bills b join leases l on l.id = b.lease_id where l.tenant_id = '${aisyah}' limit 1`),
+    audit: await maybe(`select id from audit_log where org_id = '${orgN}' limit 1`),
   }
 }
 

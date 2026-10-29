@@ -2,7 +2,9 @@
 // Run it with `npm run seed`. It uses the same code paths as the app: later stages call the lease
 // and payment services, so invoices, allocations and audit rows are exactly what the app produces.
 import { createClient } from '@supabase/supabase-js'
+import type { Actor } from '@/lib/actor'
 import { prisma } from '@/lib/prisma'
+import { createLease } from '@/lib/services/leases'
 
 // All seeded accounts share this password (also submitted with the work).
 const PASSWORD = 'Northwind#2026'
@@ -81,6 +83,34 @@ async function seedAccounts(): Promise<SeededAccounts> {
   return { orgIds, userIds, tenantIds, unitIds }
 }
 
+const LEASES = [
+  { manager: 'manager@northwind.test', unit: 'A-12-3', tenant: 'aisyah@northwind.test', startDate: '2026-01-31', endDate: '2026-07-15', monthlyRentSen: 150000, depositSen: 300000 },
+  { manager: 'manager@northwind.test', unit: 'B-05-1', tenant: 'ben@northwind.test', startDate: '2026-01-01', endDate: '2026-04-15', monthlyRentSen: 100029, depositSen: 0 },
+  { manager: 'manager@northwind.test', unit: 'C-01-7', tenant: 'probe@northwind.test', startDate: '2026-02-28', endDate: '2027-02-27', monthlyRentSen: 200000, depositSen: 400000 },
+  { manager: 'manager@beta.test', unit: 'KL-1', tenant: 'chen@beta.test', startDate: '2026-03-15', endDate: '2027-03-14', monthlyRentSen: 220000, depositSen: 440000 },
+] as const
+
+// Stage 2: leases, created through the same service the API uses (one transaction per lease: the lease,
+// exactly the invoices generateSchedule returns, and a lease.created audit row). D-03-2 stays empty.
+async function seedLeases(accounts: SeededAccounts): Promise<Record<string, string>> {
+  const leaseIds: Record<string, string> = {} // tenant email -> lease id
+  for (const lease of LEASES) {
+    const account = ACCOUNTS.find((a) => a.email === lease.manager)
+    if (!account) throw new Error(`Unknown manager ${lease.manager}`)
+    const actor: Actor = { userId: accounts.userIds[lease.manager], orgId: accounts.orgIds[account.org], role: 'manager' }
+    const { id } = await createLease(actor, {
+      unitId: accounts.unitIds[lease.unit],
+      tenantId: accounts.tenantIds[lease.tenant],
+      startDate: lease.startDate,
+      endDate: lease.endDate,
+      monthlyRentSen: lease.monthlyRentSen,
+      depositSen: lease.depositSen,
+    })
+    leaseIds[lease.tenant] = id
+  }
+  return leaseIds
+}
+
 async function main(): Promise<void> {
   if ((await prisma.organizations.count()) > 0) {
     console.log('The database already has data. Run `npx supabase db reset` first, then `npm run seed`.')
@@ -92,7 +122,11 @@ async function main(): Promise<void> {
     `Seeded ${Object.keys(accounts.orgIds).length} organizations, ${Object.keys(accounts.userIds).length} accounts, ` +
       `${Object.keys(accounts.tenantIds).length} tenants, ${Object.keys(accounts.unitIds).length} units.`,
   )
-  // Stage 2 (leases) and stage 3 (payments) are added with the lease and payment services.
+
+  const leaseIds = await seedLeases(accounts)
+  const invoices = await prisma.invoices.count()
+  console.log(`Seeded ${Object.keys(leaseIds).length} leases with ${invoices} invoices.`)
+  // Stage 3 (Aisyah's two payments) is added with the payment service.
 }
 
 main()

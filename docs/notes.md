@@ -41,3 +41,24 @@ Format: what the AI got wrong, how it was noticed, where to point in `ai-logs/`.
 - `tenants_update_own`: USING matches the read policy and WITH CHECK is `user_id = auth.uid()`. A staff member who can see a tenant row gets a 403 on update, not a silent "0 rows updated". A tenant (or another org's manager) targeting a row they cannot see gets 0 rows, which also hides that the row exists.
 - `service_role` keeps its table privileges (review decision Q7); `audit_log` is append-only for it through statement- and row-level triggers, which also fire when zero rows match.
 - `auto_expose_new_tables = false` is set in `supabase/config.toml`; the migrations also revoke explicitly, and with the setting off, `service_role` needs the explicit grants the security migration gives it.
+
+## 6. Phase 3: integration tests all failed because of an env var name clash
+- **AI error:** The test helper read the app URL from `process.env.BASE_URL`. Vitest itself sets `BASE_URL` to `/`, so every request went to `//api/leases` and all 68 tests failed with "Failed to parse URL".
+- **Noticed by:** the first run: 68 of 68 failing with the identical `Invalid URL` error pointing at the helper, which ruled out the app.
+- **Fix:** the override is now `APP_URL`.
+- **ai-logs pointer:** Phase 3 session (fill in file + position when exported).
+
+## 7. Phase 3: production smoke test ran against a stale dev server
+- **AI error:** The AI stopped the dev server with TaskStop, which only ends the npm wrapper; the `next dev` node process kept port 3000. `next build` then overwrote `.next`, so the leftover dev server answered the "production" smoke test with 500s on GET.
+- **Noticed by:** `npm start` printed `EADDRINUSE` in the same output, so the 500s could not come from the production server. Not blamed on the bundle.
+- **Fix:** found the PID that owns the port (Get-NetTCPConnection), stopped it, rebuilt, started the real production server, and repeated the smoke test and the full integration suite (68/68). Rule for later phases: free port 3000 by PID before starting a server, and never `next build` while another server uses `.next`.
+- **ai-logs pointer:** Phase 3 session (fill in file + position when exported).
+
+## Phase 3 design notes
+- Check order in every handler: authenticate (401) -> load the record through a visibility-scoped finder (404) -> role (403) -> body (400) -> state (409/422). `POST /api/leases` has no record to hide, so it checks role (403) before the body (400), then unit/tenant in the caller's org (404), then overlap (409, from the database exclusion constraint).
+- A malformed or nil UUID in a path is 404. In a body it is accepted by the regex if it looks like a uuid and then 404s when no unit/tenant matches; a non-uuid string is 400. ids are matched with a plain hex regex, not `z.uuid()`, so ids like 00000000-... reach the lookup and get 404.
+- Dates Postgres cannot store: year 0000 is rejected with 400 before any database call. billing.ts itself is unchanged.
+- API instants (`receivedAt`) are written in Malaysia time with a +08:00 offset, e.g. 2026-03-01T00:30:00.000+08:00. The brief only says "ISO 8601 with an offset"; Z would also qualify, so tests that compare parsed instants pass either way.
+- Bearer token wins over the cookie; a bad Bearer header is a 401 with no fallback to the cookie.
+- The no-role test creates its own auth user and deletes it (`auth.users` is back to 7 afterwards). The seed creates only the brief's data.
+- Integration tests leave `lease.created` audit rows (append-only), so run `npx supabase db reset && npm run seed` after `npm run test:int`.
