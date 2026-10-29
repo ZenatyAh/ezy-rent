@@ -1,0 +1,14 @@
+// GENERATED FROM THE DATABASE. Do not edit by hand.
+// supabase/migrations/ is the source of truth. After changing a migration run `npm run db:sync`
+// (supabase db reset, prisma db pull, prisma generate) and commit the result.
+// Only the generator and datasource blocks below are maintained manually; `prisma db pull`
+// keeps them and rewrites the models.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
