@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:tz": "node scripts/test-tz.mjs",
     "postinstall": "prisma generate",
     "db:reset": "npx supabase db reset",
     "db:pull": "prisma db pull",
